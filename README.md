@@ -28,7 +28,7 @@ and upload them as separate files into S3.
 
 For example consider that your e-commerce catalog only updates once a day, you can then genereate a file
 that contains two clomuns the SKU (product number) and a JSON string with the product information.
-The file is going to look like This
+The file is going to look as follow:
 
 Sample file contect:
 ```
