@@ -30,7 +30,7 @@ For example consider that your e-commerce catalog only updates once a day, you c
 that contains two clomuns the SKU (product number) and a JSON string with the product information.
 The file is going to look as follow:
 
-Sample file contect:
+Sample file content:
 ```
 SKU-123-abc-456.json  \t  { "product_name":"Item 1", "description":"Some text" ... }
 SKU-456-xcc-978.json  \t  { "product_name":"Item 2", "description":"Some text" ... }
