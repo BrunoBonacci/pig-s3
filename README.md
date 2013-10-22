@@ -63,7 +63,7 @@ The S3Storer has three contructors:
   - `S3Storer( String s3_uri, String contentType)`
   - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType )`
 
-Of course you can leverage (Pig's parameter substitution)[http://wiki.apache.org/pig/ParameterSubstitution] to parametrize all those info. For example:
+Of course you can leverage [Pig's parameter substitution](http://wiki.apache.org/pig/ParameterSubstitution) to parametrize all those info. For example:
 
 ```
 pig -p $LOCATION=s3://_accessKey_:_secretKey_@my-catalog/catalog/data/' -p DATE=$(date +"%Y-%m-%d") MyLoadScript.pig
