@@ -1,4 +1,4 @@
-# RiakStorer
+# Pig S3Storer
 
 A [UDF StoreFunc](http://pig.apache.org/docs/r0.8.0/udf.html#Store+Functions) for [Apache Pig](http://pig.apache.org/) designed to bulk-load data into [Amazon S3](http://aws.amazon.com/s3/). Inspired by [pig-redis](https://github.com/mattb/pig-redis) store function.
 
@@ -59,16 +59,16 @@ Where the content of every json file will be the content of the second column in
 
 The S3Storer has three contructors:
 
-  -- `S3Storer( String s3_uri )`
-  -- `S3Storer( String s3_uri, String contentType)`
-  -- `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType )`
+  - `S3Storer( String s3_uri )`
+  - `S3Storer( String s3_uri, String contentType)`
+  - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType )`
 
 Of course you can leverage (Pig's parameter substitution)[http://wiki.apache.org/pig/ParameterSubstitution] to parametrize all those info. For example:
 
 ```
 pig -p $LOCATION=s3://_accessKey_:_secretKey_@my-catalog/catalog/data/' -p DATE=$(date +"%Y-%m-%d") MyLoadScript.pig
 ```
-and in the script run:
+and in the script put:
 ```
 ...
 STORE file INTO '$DATE' USING com.brunobonacci.pig.s3.S3Storer('$LOCATION', 'application/json');
