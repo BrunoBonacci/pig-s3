@@ -1,0 +1,151 @@
+package com.brunobonacci.pig.s3
+
+/*
+  Copyright (c) 2013 Bruno Bonacci. All Rights Reserved.
+
+  This file is part of the pig-riak project.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+Third-party Licenses:
+
+  All third-party dependencies are listed in build.gradle.
+*/
+
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.lib.output.*;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.compress.*;
+import org.apache.hadoop.fs.*;
+import org.apache.pig.*;
+import org.apache.pig.data.*;
+import org.apache.pig.impl.util.*;
+import org.apache.pig.data.Tuple;
+
+import org.jets3t.service.impl.rest.httpclient.RestS3Service
+import org.jets3t.service.security.AWSCredentials
+import org.jets3t.service.model.*
+
+import java.io.*;
+import java.util.*;
+import java.net.URI;
+
+public class S3Storer extends StoreFunc {
+
+  protected String _accessKey;
+  protected String _secretKey;
+  protected String _bucketName;
+  protected String _path;
+  protected String _contentType;
+
+
+  protected RecordWriter _writer;
+  protected def          _s3;
+  protected def          _bucket;
+  protected def          _location;
+
+
+  public S3Storer(String uri) {
+      this(uri, "text/plain");
+  }
+
+  public S3Storer(String uri, String contentType) {
+    URI u = new URI(uri).parseServerAuthority();
+    if( u.scheme != 's3' && u.scheme != 's3n' )
+        throw new IllegalArgumentException("Unsopported AWS S3 scheme in uri: $uri");
+
+    _init( u.userInfo?.split(':')?.getAt(0),
+          u.userInfo?.split(':')?.getAt(1),
+          u.host,
+          u.path,
+          contentType);
+  }
+
+  public S3Storer(String accessKey, String secretKey,
+                    String bucketName, String path, String contentType) {
+      _init(accessKey, secretKey, bucketName, path, contentType );
+  }
+
+
+  protected void _init(String accessKey, String secretKey,
+                       String bucketName, String path, String contentType) {
+      _accessKey = accessKey;
+      _secretKey = secretKey;
+      _bucketName = bucketName;
+      _path      = path;
+      _contentType = contentType;
+
+      checkValue( "accessKey",  _accessKey );
+      checkValue( "secretKey",  _secretKey );
+      checkValue( "bucketName", _bucketName );
+      checkValue( "path", _path );
+      checkValue( "contentType", _contentType );
+
+      _path = _path.replaceAll( /\/+$/, '' );
+  }
+
+  private void checkValue( String field, String value ){
+      if( value == null || value.trim() == '' )
+          throw new IllegalArgumentException( "Invalid or missing value for field $field '$value'")
+   }
+
+  @Override
+  public OutputFormat getOutputFormat() {
+      return new NullOutputFormat();
+  }
+
+  @Override
+  public void putNext(Tuple f) throws IOException {
+      if(f.get(0) == null) {
+        return;
+      }
+
+      String key = f.get(0).toString();
+      Object value = f.getAll()?.get(1);
+      if(value != null) {
+          String content = value.toString()
+          // upload object (_location contains trailing /)
+          def s3obj = new S3Object( _bucket, "${_location}$key", content);
+          s3obj.contentType = _contentType;
+          _s3.putObject( _bucket, s3obj );
+     }
+  }
+
+  @Override
+  public void prepareToWrite(RecordWriter writer) {
+      _writer = writer;
+     def login = new AWSCredentials( _accessKey, _secretKey )
+     _s3 = new RestS3Service( login )
+     _bucket = new S3Bucket( _bucketName )
+  }
+
+  @Override
+    public void setStoreLocation(String location, Job job) throws IOException {
+       if( !location )
+           throw new IllegalArgumentException("Invalid bucket name $location");
+
+       _location = "$_path/$location"
+       _location = _location.replaceAll( /\/+/, '/' )  // remove double //
+       _location = _location.replaceAll( /\/+$/, '' )  // remove trailing /
+       _location = _location.replaceAll( /^\/+/, '')   // remove leading /
+       _location = _location.trim() != '' ?  "$_location/" : '';  // if location is present append /
+
+    }
+
+
+
+  @Override
+  public String relToAbsPathForStoreLocation(String location, org.apache.hadoop.fs.Path curDir) throws IOException {
+       return location;
+    }
+}
