@@ -32,9 +32,11 @@ import org.apache.pig.data.*;
 import org.apache.pig.impl.util.*;
 import org.apache.pig.data.Tuple;
 
-import org.jets3t.service.impl.rest.httpclient.RestS3Service
-import org.jets3t.service.security.AWSCredentials
-import org.jets3t.service.model.*
+import org.jets3t.service.impl.rest.httpclient.RestS3Service;
+import org.jets3t.service.security.AWSCredentials;
+import org.jets3t.service.model.*;
+import org.jets3t.service.Jets3tProperties;
+import org.jets3t.service.Constants;
 
 import java.io.*;
 import java.util.*;
@@ -53,7 +55,7 @@ public class S3Storer extends StoreFunc {
   protected def          _s3;
   protected def          _bucket;
   protected def          _location;
-
+  protected def          _properties;
 
   public S3Storer(String uri) {
       this(uri, "text/plain");
@@ -92,6 +94,15 @@ public class S3Storer extends StoreFunc {
       checkValue( "contentType", _contentType );
 
       _path = _path.replaceAll( /\/+$/, '' );
+
+      // Load your default settings from jets3t.properties file on the classpath
+      _properties = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
+
+      // Override default properties (increase number of connections and
+      // threads for threaded service)
+      _properties.setProperty("httpclient.max-connections", "500");
+      _properties.setProperty("threaded-service.max-thread-count", "400");
+      _properties.setProperty("threaded-service.admin-max-thread-count", "100");
   }
 
   private void checkValue( String field, String value ){
@@ -125,7 +136,7 @@ public class S3Storer extends StoreFunc {
   public void prepareToWrite(RecordWriter writer) {
       _writer = writer;
      def login = new AWSCredentials( _accessKey, _secretKey )
-     _s3 = new RestS3Service( login )
+         _s3 = new RestS3Service( login, "pig-s3 store", null, _properties )
      _bucket = new S3Bucket( _bucketName )
   }
 
