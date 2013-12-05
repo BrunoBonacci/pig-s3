@@ -22,7 +22,7 @@ package com.brunobonacci.pig.s3
   All third-party dependencies are listed in build.gradle.
 */
 
-    import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.*;
 import org.apache.hadoop.mapreduce.lib.output.*;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.io.compress.*;
@@ -45,8 +45,8 @@ import java.net.URI;
 
 public class S3Storer extends StoreFunc {
 
-    protected int MAX_SERVICE_THREADS = 400;
-    protected int MAX_ADMIN_THREADS = 100;
+    protected int MAX_SERVICE_THREADS = 100;
+    protected int MAX_ADMIN_THREADS = 50;
 
     protected String _accessKey;
     protected String _secretKey;
@@ -109,6 +109,7 @@ public class S3Storer extends StoreFunc {
         _properties.setProperty("httpclient.max-connections", "${MAX_SERVICE_THREADS + MAX_ADMIN_THREADS}");
         _properties.setProperty("threaded-service.max-thread-count", "$MAX_SERVICE_THREADS");
         _properties.setProperty("threaded-service.admin-max-thread-count", "$MAX_ADMIN_THREADS");
+        _properties.setProperty("httpclient.retry-max", "10" );
     }
 
     private void checkValue( String field, String value ){
@@ -134,7 +135,7 @@ public class S3Storer extends StoreFunc {
             // upload object (_location contains trailing /)
             def s3obj = new S3Object( _bucket, "${_location}$key", content);
             s3obj.contentType = _contentType;
-            _s3.putObject( _bucket, s3obj );
+            batchAndPutObject( s3obj );
         }
     }
 
@@ -150,7 +151,7 @@ public class S3Storer extends StoreFunc {
 
     protected synchronized void putBatch() {
         if( _batch.size() > 0 ){
-            _s3Multi.putObjects( _bucket, _batch);
+            _s3Multi.putObjects( _bucketName, _batch as S3Object[] );
             _batch = [];
         }
     }
