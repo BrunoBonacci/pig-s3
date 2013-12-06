@@ -43,10 +43,19 @@ import java.io.*;
 import java.util.*;
 import java.net.URI;
 
+/**
+ * reduced the number of service thread
+ * and increased the number of admin threas
+ * TODO: try it at scale
+ * TODO: try to batch more items than threads
+ *       to see if the pipeplining kicks in
+ */
 public class S3Storer extends StoreFunc {
 
-    protected int MAX_SERVICE_THREADS = 150;
-    protected int MAX_ADMIN_THREADS = 50;
+    // BATCH SIZE => BATCHING_FACTOR * MAX_SERVICE_THREADS
+    protected int BATCHING_FACTOR = 10;
+    protected int MAX_SERVICE_THREADS = 50;
+    protected int MAX_ADMIN_THREADS = 150;
 
     protected String _accessKey;
     protected String _secretKey;
@@ -153,7 +162,7 @@ public class S3Storer extends StoreFunc {
     /** this method batches the input up and when the batch is full submit the put request in parallel threads */
     protected synchronized void batchAndPutObject( S3Object obj ) throws IOException {
         _batch += obj;
-        if( _batch.size() >= MAX_SERVICE_THREADS ) {
+        if( _batch.size() >= BATCHING_FACTOR * MAX_SERVICE_THREADS ) {
             putBatch();
         }
     }
