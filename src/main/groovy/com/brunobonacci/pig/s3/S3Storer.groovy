@@ -45,7 +45,7 @@ import java.net.URI;
 
 public class S3Storer extends StoreFunc {
 
-    protected int MAX_SERVICE_THREADS = 100;
+    protected int MAX_SERVICE_THREADS = 150;
     protected int MAX_ADMIN_THREADS = 50;
 
     protected String _accessKey;
@@ -119,7 +119,17 @@ public class S3Storer extends StoreFunc {
 
     @Override
     public OutputFormat getOutputFormat() {
-        return new NullOutputFormat();
+        return new NullOutputFormat(){
+
+            @Override
+            public RecordWriter getRecordWriter(TaskAttemptContext ctx) {
+                return new RecordWriter(){
+                    public void write(Object key, Object value) { }
+                    /** This is VERY IMPORTANT to make sure that last batch is pushed as well */
+                    public void close(TaskAttemptContext ctxx) { putBatch() }
+                };
+            }
+          };
     }
 
     @Override
@@ -154,12 +164,6 @@ public class S3Storer extends StoreFunc {
             _s3Multi.putObjects( _bucketName, _batch as S3Object[] );
             _batch = [];
         }
-    }
-
-
-    @Override
-    public void cleanupOnSuccess(String location, Job job) throws IOException{
-        putBatch();
     }
 
 
