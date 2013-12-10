@@ -44,16 +44,21 @@ import java.util.*;
 import java.net.URI;
 
 /**
- * reduced the number of service thread
- * and increased the number of admin threas
- * TODO: try it at scale
- * TODO: try to batch more items than threads
- *       to see if the pipeplining kicks in
+ * This store function pushes the rows into Amazon S3.
+ * The first element of a row is the key, while the second is the content.
+ *
+ * This implementation uses JetS3t library to connect to S3.
+ * Every time putNext() is called a S3Object is created and put into a _batch
+ * once the batch size reaches a certain size (BATCHING_FACTOR * MAX_SERVICE_THREADS)
+ * it pushes the objects to the specified S3 bucket using a group of parallel threads.
+ *
+ * NOTE: if you increase too much the MAX_SERVICE_THREADS it's likely to get a lot
+ * of rejection from S3.
  */
 public class S3Storer extends StoreFunc {
 
     // BATCH SIZE => BATCHING_FACTOR * MAX_SERVICE_THREADS
-    protected int BATCHING_FACTOR = 10;
+    protected int BATCHING_FACTOR = 50;
     protected int MAX_SERVICE_THREADS = 50;
     protected int MAX_ADMIN_THREADS = 150;
 
