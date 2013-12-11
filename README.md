@@ -61,7 +61,9 @@ The S3Storer has three contructors:
 
   - `S3Storer( String s3_uri )`
   - `S3Storer( String s3_uri, String contentType)`
+  - `S3Storer( String s3_uri, String contentType, String numUploadThreads)`
   - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType )`
+  - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType, String numUploadThreads )`
 
 Of course you can leverage [Pig's parameter substitution](http://wiki.apache.org/pig/ParameterSubstitution) to parametrize all those info. For example:
 
@@ -74,6 +76,25 @@ and in the script put:
 STORE file INTO '$DATE' USING com.brunobonacci.pig.s3.S3Storer('$LOCATION', 'application/json');
 ```
 
+### NOTE on numUploadThreads
+
+`pig-s3` uses a number of parallel threads to upload objects in the S3 bucket. By increasing the number
+you are likely to reduce the time required to upload a certain number of objects. However be careful
+to don't go beyond the Amazon S3 requests rate limits otherwise you will receive an `HTTP 503 Slow down`
+error message and the job will fail.
+
+The default number of upload threads is `5`. This means that every mapper instance will create 5 threads each,
+and each thread will create one connection to S3. Nomally a hadoop cluster contains more nodes, and every node
+runs one or more mappers (typically one or two per core), so the total number of connections from your hadoop cluster
+to S3 will be:
+
+```
+   tot_num_connections  =  numUploadThreads  *  num_mappers_per_node * num_nodes
+```
+
+For example with the default settings in a 10 `m2.4xlarge` nodes cluster on EMR the total number of threads/connections
+to S3 will be close to *800*.
+
 ## License
 
-Distributed under [Apache Lincense 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
+Distributed under [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)

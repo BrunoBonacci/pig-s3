@@ -49,18 +49,23 @@ import java.net.URI;
  *
  * This implementation uses JetS3t library to connect to S3.
  * Every time putNext() is called a S3Object is created and put into a _batch
- * once the batch size reaches a certain size (BATCHING_FACTOR * MAX_SERVICE_THREADS)
+ * once the batch size reaches a certain size (BATCHING_FACTOR * _SERVICE_THREADS)
  * it pushes the objects to the specified S3 bucket using a group of parallel threads.
  *
- * NOTE: if you increase too much the MAX_SERVICE_THREADS it's likely to get a lot
+ * NOTE: if you increase too much the _SERVICE_THREADS it's likely to get a lot
  * of rejection from S3.
  */
 public class S3Storer extends StoreFunc {
 
-    // BATCH SIZE => BATCHING_FACTOR * MAX_SERVICE_THREADS
-    protected int BATCHING_FACTOR = 50;
-    protected int MAX_SERVICE_THREADS = 50;
-    protected int MAX_ADMIN_THREADS = 150;
+    // BATCH SIZE => batching_factor * service_threads
+    protected int _batching_factor = 50;
+    // number of threads to use for upload
+    // note that if this value is too high
+    // you will receive HTTP 503 Slow down
+    // from Amazon S3
+    private static final int DEFAULT_SERVICE_THREADS = 5;
+    protected int _service_threads = DEFAULT_SERVICE_THREADS;
+    protected int _admin_threads = 50;
 
     protected String _accessKey;
     protected String _secretKey;
@@ -81,7 +86,12 @@ public class S3Storer extends StoreFunc {
         this(uri, "text/plain");
     }
 
+
     public S3Storer(String uri, String contentType) {
+        this(uri, contentType, "$DEFAULT_SERVICE_THREADS");
+    }
+
+    public S3Storer(String uri, String contentType, String numUploadThreads) {
         URI u = new URI(uri).parseServerAuthority();
         if( u.scheme != 's3' && u.scheme != 's3n' )
             throw new IllegalArgumentException("Unsopported AWS S3 scheme in uri: $uri");
@@ -90,17 +100,26 @@ public class S3Storer extends StoreFunc {
                u.userInfo?.split(':')?.getAt(1),
                u.host,
                u.path,
-               contentType);
+               contentType,
+               numUploadThreads);
     }
+
 
     public S3Storer(String accessKey, String secretKey,
                     String bucketName, String path, String contentType) {
-        _init(accessKey, secretKey, bucketName, path, contentType );
+        _init(accessKey, secretKey, bucketName, path, contentType, "$DEFAULT_SERVICE_THREADS" );
+    }
+
+    public S3Storer(String accessKey, String secretKey,
+                    String bucketName, String path, String contentType,
+                    String numUploadThreads) {
+        _init(accessKey, secretKey, bucketName, path, contentType, numUploadThreads );
     }
 
 
     protected void _init(String accessKey, String secretKey,
-                         String bucketName, String path, String contentType) {
+                         String bucketName, String path, String contentType,
+                         String numUploadThreads) {
         _accessKey = accessKey;
         _secretKey = secretKey;
         _bucketName = bucketName;
@@ -112,6 +131,9 @@ public class S3Storer extends StoreFunc {
         checkValue( "bucketName", _bucketName );
         checkValue( "path", _path );
         checkValue( "contentType", _contentType );
+        checkIntValue( "numUploadThreads", numUploadThreads, 1);
+
+        _service_threads = Integer.parseInt(numUploadThreads);
 
         _path = _path.replaceAll( /\/+$/, '' );
 
@@ -120,15 +142,25 @@ public class S3Storer extends StoreFunc {
 
         // Override default properties (increase number of connections and
         // threads for threaded service)
-        _properties.setProperty("httpclient.max-connections", "${MAX_SERVICE_THREADS + MAX_ADMIN_THREADS}");
-        _properties.setProperty("threaded-service.max-thread-count", "$MAX_SERVICE_THREADS");
-        _properties.setProperty("threaded-service.admin-max-thread-count", "$MAX_ADMIN_THREADS");
+        _properties.setProperty("httpclient.max-connections", "${_service_threads + _admin_threads}");
+        _properties.setProperty("threaded-service.max-thread-count", "$_service_threads");
+        _properties.setProperty("threaded-service.admin-max-thread-count", "$_admin_threads");
         _properties.setProperty("httpclient.retry-max", "10" );
     }
 
     private void checkValue( String field, String value ){
         if( value == null || value.trim() == '' )
             throw new IllegalArgumentException( "Invalid or missing value for field $field '$value'");
+    }
+
+    private void checkIntValue( String field, String value, int min ){
+        checkValue( field, value );
+        try {
+            if( Integer.parseInt( value ) < min)
+                throw new IllegalArgumentException( "Invalid value for field $field '$value', the mininum value is: $min");
+        } catch( NumberFormatException x){
+            throw new IllegalArgumentException( "Invalid value for field $field '$value'");
+        }
     }
 
     @Override
@@ -167,7 +199,7 @@ public class S3Storer extends StoreFunc {
     /** this method batches the input up and when the batch is full submit the put request in parallel threads */
     protected synchronized void batchAndPutObject( S3Object obj ) throws IOException {
         _batch += obj;
-        if( _batch.size() >= BATCHING_FACTOR * MAX_SERVICE_THREADS ) {
+        if( _batch.size() >= _batching_factor * _service_threads ) {
             putBatch();
         }
     }
