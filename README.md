@@ -65,6 +65,8 @@ The S3Storer has three contructors:
   - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType )`
   - `S3Storer( String accessKey, String secretKey, String bucketName, String path, String contentType, String numUploadThreads )`
 
+**NOTE:** `numUploadThreads` is a `String` to facilitate use within a Pig script.
+
 Of course you can leverage [Pig's parameter substitution](http://wiki.apache.org/pig/ParameterSubstitution) to parametrize all those info. For example:
 
 ```
@@ -93,7 +95,7 @@ to S3 will be:
 ```
 
 For example with the default settings in a 10 `m2.4xlarge` nodes cluster on EMR the total number of threads/connections
-to S3 will be close to *800*.
+to S3 will be close to **800**.
 
 ## License
 
