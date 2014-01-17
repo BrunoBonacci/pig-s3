@@ -97,6 +97,19 @@ to S3 will be:
 For example with the default settings in a 10 `m2.4xlarge` nodes cluster on EMR the total number of threads/connections
 to S3 will be close to **800**.
 
+**In large clusters or with high number of threads I recommend to have a look to [Amazon's Request Rate and Performance Considerations for S3](http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html).**
+
+They explain:
+"... _Object keys are stored lexicographically across multiple partitions in the index. That is, Amazon S3 stores key names in alphabetical order. The key name dictates which partition the key is stored in._"
+
+Therefore if all threads try to upload loads of objects in the same partition going well above the recommended 100 req/s will force Amazon service to throttle the requests coming from your account/bucket and return `HTTP 503 Slow down`.
+To avoid this make sure that the **BEGINNIG** of the key names (paths) are random enough to distribute the load accross the different partitions. Amazon's document cited above include two common strategies to solve this problem:
+
+   * hash the key and add 3-5 characters from the hash at the **BEGINNING** of the path.
+   * if you keys have stable roots but fast changing terminations, then reverse your key.
+
+_In any case if you are planning to run some load tests, contact the friendly Amanzon helpdesk and warn them about the possible load and use a different bucket than the production one._
+
 ## License
 
 Distributed under [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
